@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: diego-core
+  namespace: argocd  
+spec:
+  project: diego-tooling
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: diego
+  source:
+    chart: diego-core
+    repoURL: https://diego-cloud-io.github.io/helm-charts/
+    targetRevision: 0.7.0
+
+    helm:
+      releaseName: diego-api
+      values: |
+        diego_application_controller_crds:
+          enabled: true
+        
+        diego_application_controller_webhooks:
+          enabled: true
+
+        diegoapi:
+          host: diego-api.diego.{{{ DOMAIN }}}
+          image:
+            repository: diegocloudio/diego-api
+            tag: main
+
+        diego_application_controller:
+          image:
+            repository: diegocloudio/application-controller
+            tag: main
+          ingress_host_domain: diego.{{{ DOMAIN }}}
+          argocd_host: argocd.diego.{{{ DOMAIN }}}

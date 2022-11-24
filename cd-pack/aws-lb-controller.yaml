@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-lb-controller
+  namespace: argocd  
+spec:
+  project: diego-tooling
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aws-load-balancer
+  source:
+    chart: aws-load-balancer-controller
+    repoURL: https://github.com/aws/eks-charts
+    targetRevision: 1.4.1
+
+    helm:
+      releaseName: aws-load-balancer-controller
+      values: |
+
+        serviceAccount:
+          create: true
+          name: "aws-load-balancer-controller"
+        annotations:
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/AmazonEKSLoadBalancerControllerRole"
+          "eks.amazonaws.com/sts-regional-endpoints": "true"
+        clusterName: {{{ CLUSTER_NAME }}}
+
+        ingressClassParams:
+          spec:
+            group:
+              name: default

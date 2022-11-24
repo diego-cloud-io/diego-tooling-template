@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns-controller
+  namespace: argocd  
+spec:
+  project: diego-tooling
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  source:
+    chart: external-dns
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    targetRevision: 1.7.1
+
+    helm:
+      releaseName: external-dns
+      values: |
+
+        provider: aws
+        sources:
+          - "service"
+          - "ingress"
+        domainFilters:
+          - diego.{{{ DOMAIN }}}
+        registry: txt
+        txtOwnerId: {{{ R53_ZONE_ID }}}
+
+        serviceAccount:
+        create: true
+        name: "external-dns"
+        annotations:
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/ExternalDnsControllerRole"

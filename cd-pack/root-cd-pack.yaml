@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-cd-pack
+  namespace: argocd
+spec:
+  project: diego-tooling
+  syncPolicy:
+    automated: {}  
+  source:
+    repoURL: https://github.com/{{{ ORG_NAME }}}/diego-tooling.git
+    targetRevision: HEAD
+    path: cd-pack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
