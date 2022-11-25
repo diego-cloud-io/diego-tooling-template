@@ -1,0 +1,84 @@
+# The CD Pack requires following infrasturcture to be in place on the existing EKS cluster
+# - R53 hosted zone - diego.<clientdomain>
+# - IAM Setup
+#   - OIDC provider for Github - For CI
+#   - IAM Role for CI 
+#   - OIDC provider for EKS - For IRSA
+#   - IAM Role for External Domain controller - ExternalDnsControllerRole
+#   - IAM Role for LB controller - AmazonEKSLoadBalancerControllerRole
+#   - IAM Role for ESO - ?
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Name: diego-cd-pack
+Description: Create infra componente required for Diego CD Pack
+
+Parameters:
+  DomainName:
+    Description: The domain name for which we want to create a diego hosted zone
+    Type: String
+    Default: diego.sachin.com
+
+  EKSClusterID:
+    Description: The ID for the EKS cluster where Diego will be installed
+    Type: String
+    Default: 329FA3B1D021131A25A10D6B78A65C2E
+
+  EKSThumbprint:
+    Description: Dont know yet
+    Type: String
+    Default: 9e99a48a9960b14926bb7f3b02e22da2b0ab7280 
+
+Resources:
+  DNS:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig: 
+        Comment: This hosted zone will be used by Diego to manage application URLs
+
+  OIDCEKS:
+    Type: AWS::IAM::OIDCProvider
+    Properties: 
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [!Ref EKSThumbprint]
+      Url: !Join
+        - "/"
+        - ["oidc.eks.eu-west-2.amazonaws.com/id", !Ref EKSClusterID]
+
+  ExternalDnsControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: 
+                - Ref: OIDCEKS
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike: !Join
+                - "/"
+                - ["oidc.eks.eu-west-2.amazonaws.com/id", "!Ref EKSClusterID:sub : system:serviceaccount:external-dns:external-dns"]
+
+  ExternalInlinePolicy:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+            Resource: 
+              - Ref: DNS
+          - Effect: Allow
+            Action:
+              - route53:ListHostedZones
+              - route53:ListResourceRecordSets
+              - route53:ListTagsForResource
+            Resource: "*"           
+      PolicyName: managezone
+      Roles: 
+        - !Ref ExternalDnsControllerRole
