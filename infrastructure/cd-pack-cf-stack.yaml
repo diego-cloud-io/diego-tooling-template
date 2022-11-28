@@ -1,0 +1,409 @@
+# The CD Pack requires following infrasturcture to be in place on the existing EKS cluster
+# - R53 hosted zone - diego.<clientdomain>
+# - IAM Setup
+#   - OIDC provider for Github - For CI
+#   - IAM Role for CI - DiegoCIRole
+#   - OIDC provider for EKS - For IRSA
+#   - IAM Role for DiegoAPI - DiegoApiRole
+#   - IAM Role for External Domain controller - DiegoDnsControllerRole
+#   - IAM Role for LB controller - DiegoLBControllerRole
+#   - IAM Role for ESO - ?
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create infra components required for Diego CD Pack
+
+Parameters:
+  DomainName:
+    Description: The domain name for which we want to create a diego hosted zone
+    Type: String
+    Default: diego.sachin.com
+
+  EKSClusterARN:
+    Description: This the cluster ARN for the target EKS cluster where Diego is installed
+    Type: String
+    Default: arn:aws:eks:eu-west-2:841929385311:cluster/base
+
+  EKSOIDCProviderURL:
+    Description: The OIDC provider URL for the EKS cluster where Diego will be installed
+    Type: String
+    Default: https://oidc.eks.eu-west-2.amazonaws.com/id/329FA3B1D021131A25A10D6B78A65C2E
+
+  EKSOIDCSubject:
+    Description: The Subject presented by EKS on the OIDC token 
+    Type: String
+    Default: oidc.eks.eu-west-2.amazonaws.com/id/329FA3B1D021131A25A10D6B78A65C2E:sub
+
+  GitHubOIDCFilter:
+    Description: The filter to constrain OIDC connection only from client Github orgnaisation
+    Type: String
+    Default: "repo:ta-diegotest1/*:*"
+
+  EKSThumbprint:
+    Description: Dont know yet
+    Type: String
+    Default: 9e99a48a9960b14926bb7f3b02e22da2b0ab7280 
+
+  GitHubThumbprint:
+    Description: Dont know yet
+    Type: String
+    Default: 6938fd4d98bab03faadb97b34396831e3780aea1 
+
+  ECRArn:
+    Description: ECR Arn
+    Type: String
+    Default: arn:aws:ecr:eu-west-2:544837605040:repository/* 
+
+  SecretsArn:
+    Description: Arn for storing secrets in Parameter Store
+    Type: String
+    Default: arn:aws:ssm:eu-west-2:544837605040:parameter/* 
+
+Resources:
+  DNS:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig: 
+        Comment: This hosted zone will be used by Diego to manage application URLs
+
+  OIDCGithub:
+    Type: AWS::IAM::OIDCProvider
+    Properties: 
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [!Ref GitHubThumbprint]
+      Url: https://token.actions.githubusercontent.com
+
+  DiegoCIRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoCIRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !GetAtt OIDCGithub.Arn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike: 
+                'token.actions.githubusercontent.com:sub': !Ref GitHubOIDCFilter
+
+  InlinePolicyDiegoCI:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+        - Action:
+          - ecr:CompleteLayerUpload
+          - ecr:UploadLayerPart
+          - ecr:InitiateLayerUpload
+          - ecr:BatchCheckLayerAvailability
+          - ecr:PutImage
+          - ecr:BatchGetImage
+          - ecr:GetDownloadUrlForLayer
+          Effect: Allow
+          Resource: !Ref ECRArn
+        - Action:
+          - ecr:GetAuthorizationToken
+          Effect: Allow
+          Resource: "*"
+        - Action:
+          - eks:DescribeCluster
+          Effect: Allow
+          Resource:
+          - !Ref EKSClusterARN
+      PolicyName: diego-ci
+      Roles: 
+        - !Ref DiegoCIRole
+
+  OIDCEks:
+    Type: AWS::IAM::OIDCProvider
+    Properties: 
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [!Ref EKSThumbprint]
+      Url: !Ref EKSOIDCProviderURL
+
+  DiegoApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoAPIRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Sid": "",
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}" 
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:diego:diego-api"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+          
+  InlinePolicyManageSecrets:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+              - ssm:DeleteParameter
+              - ssm:DeleteParameters
+              - ssm:DescribeParameter
+              - ssm:GetParameter*
+              - ssm:PutParameter
+              - ssm:LabelParameterVersion
+              - ssm:UnlabelParameterVersion              
+            Resource: !Ref SecretsArn        
+      PolicyName: diego-manage-secrets
+      Roles: 
+        - !Ref DiegoApiRole
+
+  DiegoDnsControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoDNSControllerRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Sid": "",
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}" 
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:external-dns:external-dns"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+
+  InlinePolicyManageZone:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+            Resource: !Join
+                - "/"
+                - ["arn:aws:route53:::hostedzone", !Ref DNS]  
+          - Effect: Allow
+            Action:
+              - route53:ListHostedZones
+              - route53:ListResourceRecordSets
+              - route53:ListTagsForResource
+            Resource: "*"           
+      PolicyName: diego-manage-zone
+      Roles: 
+        - !Ref DiegoDnsControllerRole
+
+  DiegoLBControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoLBControllerRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Sid": "",
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}" 
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:aws-load-balancer-controller:aws-load-balancer-controller"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+
+  InlinePolicyManageALB:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - iam:CreateServiceLinkedRole
+          Resource: "*"
+          Condition:
+            StringEquals:
+              iam:AWSServiceName: elasticloadbalancing.amazonaws.com
+        - Effect: Allow
+          Action:
+          - ec2:DescribeAccountAttributes
+          - ec2:DescribeAddresses
+          - ec2:DescribeAvailabilityZones
+          - ec2:DescribeInternetGateways
+          - ec2:DescribeVpcs
+          - ec2:DescribeVpcPeeringConnections
+          - ec2:DescribeSubnets
+          - ec2:DescribeSecurityGroups
+          - ec2:DescribeInstances
+          - ec2:DescribeNetworkInterfaces
+          - ec2:DescribeTags
+          - ec2:GetCoipPoolUsage
+          - ec2:DescribeCoipPools
+          - elasticloadbalancing:DescribeLoadBalancers
+          - elasticloadbalancing:DescribeLoadBalancerAttributes
+          - elasticloadbalancing:DescribeListeners
+          - elasticloadbalancing:DescribeListenerCertificates
+          - elasticloadbalancing:DescribeSSLPolicies
+          - elasticloadbalancing:DescribeRules
+          - elasticloadbalancing:DescribeTargetGroups
+          - elasticloadbalancing:DescribeTargetGroupAttributes
+          - elasticloadbalancing:DescribeTargetHealth
+          - elasticloadbalancing:DescribeTags
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - cognito-idp:DescribeUserPoolClient
+          - acm:ListCertificates
+          - acm:DescribeCertificate
+          - iam:ListServerCertificates
+          - iam:GetServerCertificate
+          - waf-regional:GetWebACL
+          - waf-regional:GetWebACLForResource
+          - waf-regional:AssociateWebACL
+          - waf-regional:DisassociateWebACL
+          - wafv2:GetWebACL
+          - wafv2:GetWebACLForResource
+          - wafv2:AssociateWebACL
+          - wafv2:DisassociateWebACL
+          - shield:GetSubscriptionState
+          - shield:DescribeProtection
+          - shield:CreateProtection
+          - shield:DeleteProtection
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - ec2:AuthorizeSecurityGroupIngress
+          - ec2:RevokeSecurityGroupIngress
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - ec2:CreateSecurityGroup
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - ec2:CreateTags
+          Resource: arn:aws:ec2:*:*:security-group/*
+          Condition:
+            StringEquals:
+              ec2:CreateAction: CreateSecurityGroup
+            'Null':
+              aws:RequestTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - ec2:CreateTags
+          - ec2:DeleteTags
+          Resource: arn:aws:ec2:*:*:security-group/*
+          Condition:
+            'Null':
+              aws:RequestTag/elbv2.k8s.aws/cluster: 'true'
+              aws:ResourceTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - ec2:AuthorizeSecurityGroupIngress
+          - ec2:RevokeSecurityGroupIngress
+          - ec2:DeleteSecurityGroup
+          Resource: "*"
+          Condition:
+            'Null':
+              aws:ResourceTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:CreateLoadBalancer
+          - elasticloadbalancing:CreateTargetGroup
+          Resource: "*"
+          Condition:
+            'Null':
+              aws:RequestTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:CreateListener
+          - elasticloadbalancing:DeleteListener
+          - elasticloadbalancing:CreateRule
+          - elasticloadbalancing:DeleteRule
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:AddTags
+          - elasticloadbalancing:RemoveTags
+          Resource:
+          - arn:aws:elasticloadbalancing:*:*:targetgroup/*/*
+          - arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*
+          - arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*
+          Condition:
+            'Null':
+              aws:RequestTag/elbv2.k8s.aws/cluster: 'true'
+              aws:ResourceTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:AddTags
+          - elasticloadbalancing:RemoveTags
+          Resource:
+          - arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*
+          - arn:aws:elasticloadbalancing:*:*:listener/app/*/*/*
+          - arn:aws:elasticloadbalancing:*:*:listener-rule/net/*/*/*
+          - arn:aws:elasticloadbalancing:*:*:listener-rule/app/*/*/*
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:ModifyLoadBalancerAttributes
+          - elasticloadbalancing:SetIpAddressType
+          - elasticloadbalancing:SetSecurityGroups
+          - elasticloadbalancing:SetSubnets
+          - elasticloadbalancing:DeleteLoadBalancer
+          - elasticloadbalancing:ModifyTargetGroup
+          - elasticloadbalancing:ModifyTargetGroupAttributes
+          - elasticloadbalancing:DeleteTargetGroup
+          Resource: "*"
+          Condition:
+            'Null':
+              aws:ResourceTag/elbv2.k8s.aws/cluster: 'false'
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:RegisterTargets
+          - elasticloadbalancing:DeregisterTargets
+          Resource: arn:aws:elasticloadbalancing:*:*:targetgroup/*/*
+        - Effect: Allow
+          Action:
+          - elasticloadbalancing:SetWebAcl
+          - elasticloadbalancing:ModifyListener
+          - elasticloadbalancing:AddListenerCertificates
+          - elasticloadbalancing:RemoveListenerCertificates
+          - elasticloadbalancing:ModifyRule
+          Resource: "*"
+      PolicyName: diego-manage-alb
+      Roles: 
+        - !Ref DiegoLBControllerRole
