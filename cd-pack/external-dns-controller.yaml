@@ -34,4 +34,4 @@ spec:
         create: true
         name: "external-dns"
         annotations:
-          "eks.amazonaws.com/role-arn": "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/ExternalDnsControllerRole"
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoDnsControllerRole"
