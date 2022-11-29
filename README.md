@@ -11,9 +11,9 @@ Core template fields:
 
 ## secrets
 
-The Diego API, Diego application controller and Dex secrets must be present in the cluster. These secrets are not created as part of this repo.
+Secrets for Diego API, Diego Application Controller and Dex must be present in the cluster. These secrets are not created as part of this repo.
 
-The secrets required are:
+The secrets referenced are:
 
 - `diego-api`, a mix of config and sensitive ArgoCD user name and password. Used by Diego API
 - `github-app`, a mix of cofig and sensitive private key. Used by both the Diego API and the application controller
