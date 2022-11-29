@@ -19,3 +19,4 @@ The secrets required are:
 - `github-app`, a mix of cofig and sensitive private key. Used by both the Diego API and the application controller
 - `dex-github-oauth`, sensitive client id and secret of the Diego Github App. Used by Dex. 
 - `dex-static-clients-oauth`, sensitive client id and secret of ArgoCD as a registered cleint of Dex. Used by Dex.
+

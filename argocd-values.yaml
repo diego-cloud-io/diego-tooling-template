@@ -1,0 +1,64 @@
+server:
+  ingressGrpc:
+    enabled: true
+    isAWSALB: true
+    awsALB:
+      serviceType: ClusterIP
+  ingress:
+    enabled: true
+    annotations: 
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
+      alb.ingress.kubernetes.io/target-type: ip
+    ingressClassName: alb
+
+    hosts:
+    - argocd.diego.{{{ DOMAIN }}}
+    tls: 
+    - hosts:
+      - argocd.diego.{{{ DOMAIN }}}
+  config: 
+configs:
+  cm:    
+    url: https://argocd.diego.{{{ DOMAIN }}}
+    oidc.config: |
+        name: Dex
+        issuer: https://dex.diego.{{{ DOMAIN }}}
+        clientID: $argocd-oidc:argocd_client_id
+        clientSecret: $argocd-oidc:argocd_client_secret
+        requestedScopes: ["openid", "profile", "email", "groups"]
+        requestedIDTokenClaims: {"groups": {"essential": true}}
+    resource.customizations.health.infra.diegocloud.io_Component: |
+      hs = {}
+      hs.status = "Progressing" 
+      if obj.status ~= nil then
+        if obj.status.hasErrors == true then
+          hs.status = "Degraded"
+          hs.message = "Errors during reconciliation"
+        elseif obj.status.hasChanges == false then
+          hs.status = "Healthy"
+          hs.message = "Up-to-date"
+        else
+          hs.status = "Progressing" 
+          hs.message = "Pending approval"
+        end
+      end
+      return hs
+    resource.customizations.actions.infra.diegocloud.io_Component: |
+      discovery.lua: |
+        actions = {}
+        actions["approve"] = {["disabled"] = true}
+        if obj.status.hasChanges and obj.metadata.annotations["infra.diegocloud.io/last-approval"] ~= obj.status.requiredApproval then
+            actions["approve"]["disabled"] = false
+        end
+        return actions
+      definitions:
+      - name: approve
+        action.lua: |
+          obj.metadata.annotations["infra.diegocloud.io/last-approval"] = obj.status.requiredApproval
+          return obj
+  rbac:
+    policy.default: role:admin
+dex:
+  enabled: false
