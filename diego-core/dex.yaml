@@ -7,7 +7,7 @@ spec:
   destination:
     namespace: dex
     server: https://kubernetes.default.svc
-  project: default
+  project: diego-tooling
   syncPolicy:
     syncOptions:
       - CreateNamespace=true    
@@ -30,11 +30,6 @@ spec:
               secretKeyRef:
                 name: dex-github-oauth
                 key: client_secret
-          - name: ARGOCD_CLIENT_ID
-            valueFrom:
-              secretKeyRef:
-                name: dex-static-clients-oauth
-                key: argocd_client_id
           - name: ARGOCD_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
@@ -70,7 +65,7 @@ spec:
                 redirectURI: 'https://dex.diego.{{{ DOMAIN }}}/callback'
 
           staticClients:
-          - idEnv: ARGOCD_CLIENT_ID
+          - id: argocd
             secretEnv: ARGOCD_CLIENT_SECRET
             name: argocd
             redirectURIs:
