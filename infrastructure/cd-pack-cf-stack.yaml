@@ -34,6 +34,11 @@ Parameters:
     Type: String
     Default: oidc.eks.eu-west-2.amazonaws.com/id/329FA3B1D021131A25A10D6B78A65C2E:sub
 
+  EKSOIDCAudience:
+    Description: The Audience presented by EKS on the OIDC token 
+    Type: String
+    Default: oidc.eks.eu-west-2.amazonaws.com/id/329FA3B1D021131A25A10D6B78A65C2E:aud
+
   GitHubOIDCFilter:
     Description: The filter to constrain OIDC connection only from client Github orgnaisation
     Type: String
@@ -58,6 +63,11 @@ Parameters:
     Description: Arn for storing secrets in Parameter Store
     Type: String
     Default: arn:aws:ssm:eu-west-2:544837605040:parameter/* 
+
+  PreviewSecretsArn:
+    Description: Arn for storing secrets in Parameter Store
+    Type: String
+    Default: arn:aws:ssm:eu-west-2:544837605040:parameter/diego/preview/* 
 
 Resources:
   DNS:
@@ -407,3 +417,45 @@ Resources:
       PolicyName: diego-manage-alb
       Roles: 
         - !Ref DiegoLBControllerRole
+
+  DiegoAppSecretsReaderPreview:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoAppSecretsReaderRolePreview
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}"
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringEquals": {
+                              "${EKSOIDCAudience}": "sts.amazonaws.com"
+                          },
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:pvw-*:eso-secret-store"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+          
+  InlinePolicyManageSecrets:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter*             
+            Resource: !Ref PreviewSecretsArn        
+      PolicyName: diego-secret-access
+      Roles: 
+        - !Ref DiegoAppSecretsReaderRolePreview
