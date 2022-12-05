@@ -23,17 +23,17 @@ spec:
           - name: CLIENT_ID
             valueFrom:
               secretKeyRef:
-                name: dex-github-oauth
+                name: dex-oauth
                 key: client_id
           - name: CLIENT_SECRET
             valueFrom:
               secretKeyRef:
-                name: dex-github-oauth
+                name: dex-oauth
                 key: client_secret
           - name: ARGOCD_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
-                name: dex-static-clients-oauth
+                name: dex-oauth
                 key: argocd_client_secret
 
         config:
