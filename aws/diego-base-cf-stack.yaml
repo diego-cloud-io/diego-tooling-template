@@ -76,6 +76,19 @@ Resources:
       HostedZoneConfig: 
         Comment: This hosted zone will be used by Diego to manage application URLs
 
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Join
+        - "."
+        - ["*", !Ref DomainName]     
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Join
+            - "."
+            - ["*", !Ref DomainName]
+          HostedZoneId: !GetAtt DNS.Id
+
   OIDCGithub:
     Type: AWS::IAM::OIDCProvider
     Properties: 
