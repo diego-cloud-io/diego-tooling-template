@@ -417,7 +417,7 @@ Resources:
       Roles: 
         - !Ref DiegoLBControllerRole
 
-DiegoAppSecretsReaderPreview:
+  DiegoAppSecretsReaderRolePreview:
     Type: AWS::IAM::Role
     Properties:
       RoleName: DiegoAppSecretsReaderRolePreview
