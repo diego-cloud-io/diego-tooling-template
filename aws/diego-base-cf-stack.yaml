@@ -17,7 +17,7 @@ Parameters:
   DomainName:
     Description: The domain name for which we want to create a diego hosted zone
     Type: String
-    Default: diego.sachin.com
+    Default: diego.testsorg.com
 
   EKSClusterARN:
     Description: This the cluster ARN for the target EKS cluster where Diego is installed
