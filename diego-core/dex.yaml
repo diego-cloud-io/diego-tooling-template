@@ -35,6 +35,11 @@ spec:
               secretKeyRef:
                 name: dex-oauth
                 key: argocd_client_secret
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: dex-oauth
+                key: oauth2_proxy_client_secret
 
         config:
 
@@ -70,6 +75,11 @@ spec:
             name: argocd
             redirectURIs:
             - https://argocd.diego.{{{ DOMAIN }}}/auth/callback
+          - id: oauth2-proxy
+            secretEnv: OAUTH2_PROXY_CLIENT_SECRET
+            name: oauth2-proxy
+            redirectURIs:
+            - https://hub.diego.{{{ DOMAIN }}}/oauth2/callback
 
         ingress:
           enabled: true

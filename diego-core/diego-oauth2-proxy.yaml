@@ -1,0 +1,93 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: diego-oauth2-proxy
+  namespace: argocd
+spec:
+  destination:
+    namespace: diego
+    server: https://kubernetes.default.svc
+  project: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true    
+  source:
+    chart: oauth2-proxy
+    repoURL: https://oauth2-proxy.github.io/manifests
+    targetRevision: 6.5.0
+    helm:
+      valueFiles:
+      - values.yaml
+      values: |
+        proxyVarsAsSecrets: true
+        config:
+          existingSecret: diego-oauth2-proxy-oauth
+          cookieName: diego-hub
+          configFile: |-
+            email_domains = [ "*" ]
+            skip_provider_button = true    
+            api_routes = [ "^/graphql" ]
+
+        alphaConfig:
+          enabled: true
+          configData:
+            upstreamConfig:
+              upstreams:
+              - id: diego-ui
+                uri: "http://diego-ui.diego.svc.cluster.local:8080"
+                path: "/"
+              - id: diego-api
+                uri: "http://diego-api-webservice.diego.svc.cluster.local:8080"
+                path: "/graphql"
+
+            providers: 
+              - id: dex
+                provider: oidc
+                name: dex
+                clientID: oauth2-proxy
+                clientSecretFile: /etc/providers/oidc-client-secret
+                loginURL: "https://dex.diego.{{{ DOMAIN }}}/auth"
+                redeemURL: "https://dex.diego.{{{ DOMAIN }}}/token"
+                profileURL: "https://dex.diego.{{{ DOMAIN }}}/userinfo"
+                oidcConfig:
+                  issuerURL: "https://dex.diego.{{{ DOMAIN }}}.io"
+                  jwksURL: "https://dex.diego.{{{ DOMAIN }}}/keys"
+                  audienceClaims: [aud]
+                  userIDClaim: email 
+                  emailClaim: email
+
+        image:
+          tag: "v7.4.0"
+
+        service:
+          type: ClusterIP
+          portNumber: 8080
+
+        ingress:
+          enabled: true
+          className: alb
+          path: /
+          pathType: Prefix
+          hosts:
+            - hub.diego.{{{ DOMAIN }}}
+          annotations:
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/healthcheck-path: /ping
+            alb.ingress.kubernetes.io/healthcheck-port: "8080"
+            alb.ingress.kubernetes.io/target-type: ip
+          tls:
+            - hosts:
+                - hub.diego.{{{ DOMAIN }}}
+
+        extraVolumes: 
+          - name: oidc-client-secret
+            secret: 
+              secretName: diego-oauth2-proxy-oauth
+              items:
+                - key: client-secret
+                  path: oidc-client-secret
+
+        extraVolumeMounts:
+          - mountPath: /etc/providers/
+            name: oidc-client-secret
