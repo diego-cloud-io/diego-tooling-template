@@ -34,7 +34,7 @@ spec:
             upstreamConfig:
               upstreams:
               - id: diego-ui
-                uri: "http://diego-ui.diego.svc.cluster.local:8080"
+                uri: "http://diego-hub-webservice.diego.svc.cluster.local:8080"
                 path: "/"
               - id: diego-api
                 uri: "http://diego-api-webservice.diego.svc.cluster.local:8080"
