@@ -15,7 +15,7 @@ spec:
   source:
     chart: diego-core
     repoURL: https://diego-cloud-io.github.io/helm-charts/
-    targetRevision: 0.7.0
+    targetRevision: 0.14.0
 
     helm:
       releaseName: diego-api
@@ -25,6 +25,11 @@ spec:
         
         diego_application_controller_webhooks:
           enabled: true
+
+        diego_hub:
+          image:
+            repository: diegocloudio/diego-hub
+            tag: main
 
         diegoapi:
           host: diego-api.diego.{{{ DOMAIN }}}
