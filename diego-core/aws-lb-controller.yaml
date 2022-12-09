@@ -14,7 +14,7 @@ spec:
     namespace: aws-load-balancer
   source:
     chart: aws-load-balancer-controller
-    repoURL: https://github.com/aws/eks-charts
+    repoURL: https://aws.github.io/eks-charts
     targetRevision: 1.4.1
 
     helm:
