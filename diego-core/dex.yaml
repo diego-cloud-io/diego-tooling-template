@@ -9,6 +9,7 @@ spec:
     server: https://kubernetes.default.svc
   project: diego-tooling
   syncPolicy:
+    automated: {}
     syncOptions:
       - CreateNamespace=true    
   source:
@@ -94,11 +95,11 @@ spec:
             alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
 
           hosts:
-            - host: dex.core.{{{ DOMAIN }}}
+            - host: dex.diego.{{{ DOMAIN }}}
               paths:
                 - path: /
                   pathType: Prefix
           tls:
             - hosts:
-              - dex.core.{{{ DOMAIN }}}
+              - dex.diego.{{{ DOMAIN }}}
 
