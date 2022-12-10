@@ -51,7 +51,7 @@ spec:
                 redeemURL: "https://dex.diego.{{{ DOMAIN }}}/token"
                 profileURL: "https://dex.diego.{{{ DOMAIN }}}/userinfo"
                 oidcConfig:
-                  issuerURL: "https://dex.diego.{{{ DOMAIN }}}.io"
+                  issuerURL: "https://dex.diego.{{{ DOMAIN }}}"
                   jwksURL: "https://dex.diego.{{{ DOMAIN }}}/keys"
                   audienceClaims: [aud]
                   userIDClaim: email 
