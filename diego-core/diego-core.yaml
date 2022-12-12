@@ -32,12 +32,14 @@ spec:
             tag: main
 
         diegoapi:
+          aws_diego_api_role_arn: "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoAPIRole"
           host: diego-api.diego.{{{ DOMAIN }}}
           image:
             repository: diegocloudio/diego-api
             tag: main
 
         diego_application_controller:
+          aws_actions_role_arn: "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoCIRole"
           image:
             repository: diegocloudio/application-controller
             tag: main
