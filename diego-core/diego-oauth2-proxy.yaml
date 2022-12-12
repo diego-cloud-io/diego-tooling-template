@@ -7,7 +7,7 @@ spec:
   destination:
     namespace: diego
     server: https://kubernetes.default.svc
-  project: default
+  project: diego-tooling
   syncPolicy:
     automated: {}
     syncOptions:
