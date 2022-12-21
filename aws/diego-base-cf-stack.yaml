@@ -471,3 +471,44 @@ Resources:
       PolicyName: diego-secret-access
       Roles: 
         - !Ref DiegoAppSecretsReaderRolePreview
+
+DiegoAppControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoAppControllerRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Sid": "",
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}" 
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:diego:diego-application-controller-manager"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+
+  InlinePolicyManageZone:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:CreateRepository
+            Resource: "*"
+      PolicyName: diego-create-repository
+      Roles: 
+        - !Ref DiegoAppControllerRole
+
