@@ -459,7 +459,7 @@ Resources:
         - EKSOIDCSubject: !Ref EKSOIDCSubject
           
   InlinePolicyReadSecrets:
-    Type: AWS::IAM::Policye
+    Type: AWS::IAM::Policy
     Properties: 
       PolicyDocument: 
         Version: "2012-10-17"
