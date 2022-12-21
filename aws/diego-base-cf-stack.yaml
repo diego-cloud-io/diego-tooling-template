@@ -507,6 +507,8 @@ Resources:
           - Effect: Allow
             Action:
               - ecr:CreateRepository
+              - ecr:TagResource
+              - ecr:DescribeRepositories
             Resource: "*"
       PolicyName: diego-create-repository
       Roles: 
