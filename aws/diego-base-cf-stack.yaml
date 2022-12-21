@@ -458,7 +458,7 @@ Resources:
           }
         - EKSOIDCSubject: !Ref EKSOIDCSubject
           
-  InlinePolicyManageSecrets:
+  InlinePolicyReadSecrets:
     Type: AWS::IAM::Policy
     Properties: 
       PolicyDocument: 
@@ -472,7 +472,7 @@ Resources:
       Roles: 
         - !Ref DiegoAppSecretsReaderRolePreview
 
-DiegoAppControllerRole:
+  DiegoAppControllerRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: DiegoAppControllerRole
@@ -498,7 +498,7 @@ DiegoAppControllerRole:
           }
         - EKSOIDCSubject: !Ref EKSOIDCSubject
 
-  InlinePolicyManageZone:
+  InlinePolicyCreateRepo:
     Type: AWS::IAM::Policy
     Properties: 
       PolicyDocument: 
