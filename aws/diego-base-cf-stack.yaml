@@ -67,6 +67,14 @@ Parameters:
     Description: Arn for storing secrets in Parameter Store
     Type: String
     Default: arn:aws:ssm:eu-west-2:544837605040:parameter/diego/preview/* 
+  StagingSecretsArn:
+    Description: Arn for storing secrets in Parameter Store
+    Type: String
+    Default: arn:aws:ssm:eu-west-2:544837605040:parameter/diego/staging/* 
+  ProductionSecretsArn:
+    Description: Arn for storing secrets in Parameter Store
+    Type: String
+    Default: arn:aws:ssm:eu-west-2:544837605040:parameter/diego/production/* 
 
 Resources:
   DNS:
@@ -458,7 +466,7 @@ Resources:
           }
         - EKSOIDCSubject: !Ref EKSOIDCSubject
           
-  InlinePolicyManageSecrets:
+  InlinePolicyManagePreviewSecrets:
     Type: AWS::IAM::Policy
     Properties: 
       PolicyDocument: 
@@ -468,6 +476,90 @@ Resources:
             Action:
               - ssm:GetParameter*             
             Resource: !Ref PreviewSecretsArn        
-      PolicyName: diego-secret-access
+      PolicyName: diego-preview-secret-access
       Roles: 
         - !Ref DiegoAppSecretsReaderRolePreview
+
+  DiegoAppSecretsReaderRoleStaging:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoAppSecretsReaderRoleStaging
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}"
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringEquals": {
+                              "${EKSOIDCAudience}": "sts.amazonaws.com"
+                          },
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:staging:eso-secret-store"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+          
+  InlinePolicyManageStagingSecrets:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter*             
+            Resource: !Ref StagingSecretsArn        
+      PolicyName: diego-staging-secret-access
+      Roles: 
+        - !Ref DiegoAppSecretsReaderRoleStaging
+
+  DiegoAppSecretsReaderRoleProduction:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DiegoAppSecretsReaderRoleProduction
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Principal": {
+                          "Federated": "${OIDCEks.Arn}"
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                          "StringEquals": {
+                              "${EKSOIDCAudience}": "sts.amazonaws.com"
+                          },
+                          "StringLike": {
+                              "${EKSOIDCSubject}":"system:serviceaccount:production:eso-secret-store"
+                          }
+                      }
+                  }
+              ]
+          }
+        - EKSOIDCSubject: !Ref EKSOIDCSubject
+          
+  InlinePolicyManageProductionSecrets:
+    Type: AWS::IAM::Policy
+    Properties: 
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter*             
+            Resource: !Ref ProductionSecretsArn        
+      PolicyName: diego-production-secret-access
+      Roles: 
+        - !Ref DiegoAppSecretsReaderRoleProduction        
