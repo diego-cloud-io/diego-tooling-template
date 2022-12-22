@@ -480,6 +480,7 @@ Resources:
       Roles: 
         - !Ref DiegoAppSecretsReaderRolePreview
 
+
   DiegoAppSecretsReaderRoleStaging:
     Type: AWS::IAM::Role
     Properties:
