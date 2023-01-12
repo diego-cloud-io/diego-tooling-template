@@ -11,7 +11,7 @@
 
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Create infra components required for Diego CD Pack
+Description: Create infra components required for Diego Core
 
 Parameters:
   DomainName:
