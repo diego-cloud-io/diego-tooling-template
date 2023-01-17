@@ -26,6 +26,7 @@ spec:
           annotations:
             "eks.amazonaws.com/role-arn": "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoLBControllerRole"
             "eks.amazonaws.com/sts-regional-endpoints": "true"
+        enableCertManager: true
         clusterName: {{{ CLUSTER_NAME }}}
         ingressClassParams:
           spec:
