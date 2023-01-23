@@ -17,6 +17,4 @@ spec:
     repoURL: https://aquasecurity.github.io/helm-charts/
     targetRevision: 0.10.1
     helm:
-      values: |
-        trivy:
-          ignoreUnfixed: false
+      values:
