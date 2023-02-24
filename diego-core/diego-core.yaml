@@ -15,7 +15,7 @@ spec:
   source:
     chart: diego-core
     repoURL: https://diego-cloud-io.github.io/helm-charts/
-    targetRevision: 0.20.0
+    targetRevision: 0.21.0
 
     helm:
       releaseName: diego-api
@@ -34,9 +34,6 @@ spec:
         diegoapi:
           aws_diego_api_role_arn: "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoAPIRole"
           host: diego-api.diego.{{{ DOMAIN }}}
-          image:
-            repository: diegocloudio/diego-api
-            tag: main
 
         diego_application_controller:
           project_repo_name: diego-default-project
@@ -44,9 +41,5 @@ spec:
           aws_diego_app_controller_role_arn: "arn:aws:iam::{{{ AWS_ACCOUNT_ID }}}:role/DiegoAppControllerRole"
           aws_region: eu-west-2
           target_cluster_name: {{{ CLUSTER_NAME }}}
-
-          image:
-            repository: diegocloudio/application-controller
-            tag: main
           ingress_host_domain: diego.{{{ DOMAIN }}}
           argocd_host: argocd.diego.{{{ DOMAIN }}}
