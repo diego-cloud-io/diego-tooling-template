@@ -605,6 +605,7 @@ Resources:
               - ecr:CreateRepository
               - ecr:TagResource
               - ecr:DescribeRepositories
+              - ecr:BatchDeleteImage
             Resource: "*"
       PolicyName: diego-create-repository
       Roles: 
